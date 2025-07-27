@@ -1,0 +1,11 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
+local remote = ReplicatedStorage:WaitForChild("DiscordChatMessage")
+
+local DiscordChannel = TextChatService:WaitForChild("Discord") -- make sure you create a TextChannel in text chat service
+
+remote.OnClientEvent:Connect(function(username, message)
+	DiscordChannel:DisplaySystemMessage(
+		string.format('<font color="#7289DA">[DISCORD] %s: %s</font>', username, message)
+	)
+end)
