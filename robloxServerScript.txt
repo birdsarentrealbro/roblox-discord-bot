@@ -1,0 +1,65 @@
+--put in serverscriptservice
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+
+local serverUrl = "your server url here (just host bot.js)" -- no trailing slash
+print("[INIT] Discord bridge starting")
+
+-- Ensure RemoteEvent exists
+local remote = ReplicatedStorage:FindFirstChild("DiscordChatMessage")
+if not remote then
+	remote = Instance.new("RemoteEvent")
+	remote.Name = "DiscordChatMessage"
+	remote.Parent = ReplicatedStorage
+	print("[INIT] Created RemoteEvent: DiscordChatMessage")
+else
+	print("[INIT] Found existing RemoteEvent: DiscordChatMessage")
+end
+
+-- Send Roblox chat to Discord
+Players.PlayerAdded:Connect(function(player)
+	player.Chatted:Connect(function(message)
+		print("[ROBLOX -> DISCORD] "..player.Name..": "..message)
+		local data = {
+			username = player.Name,
+			message = message,
+		}
+		local success, response = pcall(function()
+			return HttpService:PostAsync(
+				serverUrl .. "/roblox-to-discord",
+				HttpService:JSONEncode(data),
+				Enum.HttpContentType.ApplicationJson
+			)
+		end)
+
+		if success then
+			print("[SENT] Message posted to Discord")
+		else
+			warn("[ERROR] Failed to send to Discord:", response)
+		end
+	end)
+end)
+
+-- Poll for new Discord messages
+task.spawn(function()
+	while true do
+		task.wait(1)
+		print("[POLLING] Checking for Discord messages...")
+		local success, response = pcall(function()
+			return HttpService:GetAsync(serverUrl .. "/discord-to-roblox")
+		end)
+
+		if success then
+			local data = HttpService:JSONDecode(response)
+			if data and data.message then
+				print("[DISCORD -> ROBLOX] "..data.username..": "..data.message)
+				remote:FireAllClients(data.username, data.message)
+			else
+				print("[POLLING] No new Discord messages")
+			end
+		else
+			warn("[ERROR] Failed to get Discord message:", response)
+		end
+	end
+end)
